@@ -4,7 +4,7 @@
 #ifndef SCENE_H_INCLUDED
 #define SCENE_H_INCLUDED
 #include <memory>
-#include <iostream>
+#include <string>
 
 class SceneStack;//ëäå›éQè∆
 
