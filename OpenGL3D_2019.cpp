@@ -3,19 +3,46 @@
 
 #include "pch.h"
 #include <iostream>
+#include "Src/TitleScene.h"
+#include "Src/GLFWEW.h"
+#include <Windows.h>
+
 
 int main()
 {
-    std::cout << "Hello World!\n"; 
+	GLFWEW::Window& window = GLFWEW::Window::Instance();
+	window.Init(1280, 720, u8"アクションゲーム");
+
+	SceneStack& sceneStack = SceneStack::Instance();
+	sceneStack.Push(std::make_shared<TitleScene>());
+
+	while (!window.ShouldClose())
+	{
+		//ESCキーが押されたら終了ウィンドウを表示
+		if (window.IsKeyPressed(GLFW_KEY_ESCAPE))
+		{
+			if (MessageBox(nullptr, "ゲームを終了しますか?", "終了", MB_OKCANCEL) == IDOK)
+			{
+				break;
+			}
+		}
+		const float deltaTime = window.DeltaTime();
+		window.UpdateTimer();
+		sceneStack.Update(deltaTime);
+		
+		//バックバッファを消去する
+		glClearColor(0.8f, 0.2f, 0.1f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		//GLコンテキストのパラメータを設定
+		glEnable(GL_CULL_FACE);
+		glEnable(GL_DEPTH_TEST);
+
+		sceneStack.Render();
+		window.SwapBuffers();
+	}
 }
 
 // プログラムの実行: Ctrl + F5 または [デバッグ] > [デバッグなしで開始] メニュー
 // プログラムのデバッグ: F5 または [デバッグ] > [デバッグの開始] メニュー
 
-// 作業を開始するためのヒント: 
-//    1. ソリューション エクスプローラー ウィンドウを使用してファイルを追加/管理します 
-//   2. チーム エクスプローラー ウィンドウを使用してソース管理に接続します
-//   3. 出力ウィンドウを使用して、ビルド出力とその他のメッセージを表示します
-//   4. エラー一覧ウィンドウを使用してエラーを表示します
-//   5. [プロジェクト] > [新しい項目の追加] と移動して新しいコード ファイルを作成するか、[プロジェクト] > [既存の項目の追加] と移動して既存のコード ファイルをプロジェクトに追加します
-//   6. 後ほどこのプロジェクトを再び開く場合、[ファイル] > [開く] > [プロジェクト] と移動して .sln ファイルを選択します
