@@ -297,7 +297,7 @@ namespace Shader
 	*
 	* @param matMVP 設定するビュー プロジェクション行列
 	*/
-	void Program::SetViewprojectionMatrix(const glm::mat4& matVP)
+	void Program::SetViewProjectionMatrix(const glm::mat4& matVP)
 	{
 		this->matVP = matVP;
 		if (locMatMVP >= 0)
@@ -331,4 +331,4 @@ namespace Shader
 	{
 		return std::make_shared<Program>(BuildFromFile(vsPath, fsPath));
 	}
-}//Shader namespace
+}//namespace Shader

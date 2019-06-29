@@ -201,7 +201,7 @@ bool SpriteRenderer::Init(size_t maxSpriteCount, const char* vsPath, const char*
 			halfScreenSize.y, 1.0f, 1000.0f);
 		const glm::mat4x4 matView = glm::lookAt(
 			glm::vec3(0, 0, 100), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
-		program->SetViewprojectionMatrix(matProj * matView);
+		program->SetViewProjectionMatrix(matProj * matView);
 		for (const Primitive& primitive : primitives)
 		{
 			program->BindTexture(0, primitive.texture->Get());
