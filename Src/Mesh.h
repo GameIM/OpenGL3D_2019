@@ -80,22 +80,24 @@ namespace Mesh
 		Buffer() = default;
 		~Buffer() = default;
 
-		bool Init(GLsizeiptr vboSize, GLsizeiptr iboSize, GLsizeiptr uboSize);
+		bool Init(GLsizeiptr vboSize, GLsizeiptr iboSize);
 		GLintptr AddVertexData(const void* data, size_t size);
 		GLintptr AddIndexData(const void* data, size_t size);
 		Primitive CreatePrimitive(
-			size_t cout, GLenum type, size_t iOffset, size_t voffset) const;
+			size_t count, GLenum type, size_t iOffset, size_t vOffset) const;
 		Material CreateMaterial(const glm::vec4& color, Texture::Image2DPtr texture) const;
 		bool AddMesh(const char* name, const Primitive& primitive, const Material& material);
 		FilePtr GetFile(const char* name) const;
+		void AddCude(const char* name);
 
 	private:
 		BufferObject vbo;
-		BufferObject ino;
+		BufferObject ibo;
 		GLintptr vboEnd = 0;
 		GLintptr iboEnd = 0;
 		std::unordered_map<std::string, FilePtr> files;
 		Shader::ProgramPtr progStaticMesh;
 	};
+	void Draw(const FilePtr&, const glm::mat4& matVP, const glm::mat4& matM);
 }//namespace Mesh
 #endif //MESH_H_INCLUDED

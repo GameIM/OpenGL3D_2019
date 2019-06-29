@@ -71,7 +71,7 @@ namespace Shader
 		void Use();
 		void BindTexture(GLuint, GLuint);
 		void SetLightList(const LightList&);
-		void SetViewprojectionMatrix(const glm::mat4&);
+		void SetViewProjectionMatrix(const glm::mat4&);
 		void SetModelMatrix(const glm::mat4&);
 	private:
 		GLuint id = 0;//ƒvƒƒOƒ‰ƒ€ID
