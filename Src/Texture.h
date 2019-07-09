@@ -3,11 +3,10 @@
 */
 #ifndef TEXTURE_H_INCLUDED
 #define TEXTURE_H_INCLUDED
-#define NOMINMAX //NO MIN MAX
 #include <GL/glew.h>
-#include <memory>
 #include <glm/glm.hpp>
 #include <vector>
+#include <memory>
 
 namespace Texture
 {

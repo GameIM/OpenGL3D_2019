@@ -23,7 +23,7 @@ namespace Terrain
 		HeightMap() = default;
 		~HeightMap() = default;
 
-		bool LoadImageFile(const char* path, float scale, float baseLevel);
+		bool LoadFromFile(const char* path, float scale, float baseLevel);
 		float Height(const glm::vec3& pos) const;
 		const glm::ivec2& Size() const;
 		bool CreateMesh(Mesh::Buffer& meshBuffer,
@@ -34,7 +34,7 @@ namespace Terrain
 		glm::ivec2 size = glm::ivec2(0);//バイトマップの大きさ
 		std::vector<float> heights;//高さデータ
 
-		glm::vec3 CalcNormal(int x, int y) const;
+		glm::vec3 CalcNormal(int x, int z) const;
 	};
 }//namespace Terrain
 #endif //TERRAIN_H_INCLUDED
