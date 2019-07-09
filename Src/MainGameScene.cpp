@@ -21,9 +21,10 @@ bool MainGameScene::Initialize()
 	spr.Scale(glm::vec2(2));
 	sprites.push_back(spr);
 	meshBuffer.Init(1'000'000 * sizeof(Mesh::Vertex), 3'000'000 * sizeof(GLushort));
+	meshBuffer.LoadMesh("Res/red_pine_tree.gltf");
 
 	//ハイトマップを作成
-	if (!heightMap.LoadImageFile("Res/Terrain.tga", 20.0f, 0.5f))
+	if (!heightMap.LoadFromFile("Res/Terrain.tga", 20.0f, 0.5f))
 	{
 		return false;
 	}
@@ -57,11 +58,11 @@ void MainGameScene::ProcessInput()
 	}
 	if (gamepad.buttons &GamePad::DPAD_DOWN)
 	{
-		velocity.z = -1;
+		velocity.z = 1;
 	}
 	else if (gamepad.buttons &GamePad::DPAD_UP)
 	{
-		velocity.z = 1;
+		velocity.z = -1;
 	}
 	if (velocity.x || velocity.z)
 	{
@@ -135,5 +136,11 @@ void MainGameScene::Render()
 	const glm::mat4 matModel = glm::translate(glm::mat4(1),cubePos);
 	Mesh::Draw(meshBuffer.GetFile("Cube"), matProj * matView, matModel);
 	Mesh::Draw(meshBuffer.GetFile("Terrain"), matProj * matView, glm::mat4(1));
+
+	glm::vec3 treePos(110, 0, 110);
+	treePos.y = heightMap.Height(treePos);
+	const glm::mat4 matTreeModel =
+		glm::translate(glm::mat4(1), treePos) * glm::scale(glm::mat4(1), glm::vec3(3));
+	Mesh::Draw(meshBuffer.GetFile("Res/red_pine_tree.gltf"), matProj * matView, matTreeModel);
 }
 

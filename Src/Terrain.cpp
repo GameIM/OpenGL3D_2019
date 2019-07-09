@@ -21,13 +21,13 @@ namespace Terrain
 	*
 	* 画像の赤要素を高さデータとみなして読み込む
 	*/
-	bool HeightMap::LoadImageFile(const char* path, float scale, float baseLevel)
+	bool HeightMap::LoadFromFile(const char* path, float scale, float baseLevel)
 	{
 		//画像ファイルを読み込む
 		Texture::ImageData imageData;
 		if (!Texture::LoadImage2D(path, &imageData))
 		{
-			std::cerr << "[エラー]" << __func__ << ":バイトマップを読み込めませんでした\n";
+			std::cerr << "[エラー]" << __func__ << ":ハイトマップを読み込めませんでした\n";
 			return false;
 		}
 		name = path;
@@ -116,7 +116,7 @@ namespace Terrain
 	*
 	* 三角形は以下の通り
 	* d- -c
-	* |/|
+	* | / |
 	* a- -b
 	*/
 	bool HeightMap::CreateMesh(
@@ -161,7 +161,7 @@ namespace Terrain
 				indices.push_back(c);
 
 				indices.push_back(c);
-				indices.push_back(b);
+				indices.push_back(d);
 				indices.push_back(a);
 			}
 		}

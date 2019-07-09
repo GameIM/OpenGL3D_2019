@@ -1,6 +1,7 @@
 /**
 * @file Texture.cpp
 */
+#define NOMINMAX//NO MIN MAX
 #include "Texture.h"
 #include <stdint.h>
 #include <vector>
@@ -214,7 +215,7 @@ namespace Texture
 		}
 		imageData->width = width;
 		imageData->height = height;
-		imageData -> format = format;
+		imageData ->format = format;
 		imageData->type = type;
 		imageData->data.swap(buf);
 		return true;

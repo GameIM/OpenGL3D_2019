@@ -2,6 +2,10 @@
 *@file Mesh.cpp
 */
 #include "Mesh.h"
+#include "json11/json11.hpp"
+#include <glm/gtc/quaternion.hpp>
+#include <fstream>
+#include <algorithm>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/constants.hpp>
 #include <iostream>
@@ -11,6 +15,163 @@
 */
 namespace Mesh
 {
+	/**
+	* ファイルを読み込む
+	*
+	* @param path ファイル名
+	*
+	* @return ファイルの内容
+	*/
+	std::vector<char> ReadFile(const char* path)
+	{
+		std::ifstream ifs(path, std::ios_base::binary);
+		if (!ifs)
+		{
+			std::cerr << "[エラー]" << __func__ << ":" << path << "を開けません\n";
+				return{};
+		}
+		std::vector<char> tmp(1'000'000);
+		ifs.rdbuf()->pubsetbuf(tmp.data(), tmp.size());
+
+		ifs.seekg(0, std::ios_base::end);
+		const std::streamoff size = ifs.tellg();
+		ifs.seekg(0, std::ios_base::beg);
+
+		std::vector<char> buf;
+		buf.resize(static_cast<size_t>(size));
+		ifs.read(&buf[0], size);
+
+		return buf;
+	}
+
+	/**
+	* JSONの配列データをglm::vec3に変換する
+	*
+	* @param json 変換元となる配列データ
+	*
+	* @return json 変換して出来たvec3の値
+	*/
+	glm::vec3 GetVec3(const json11::Json& json)
+	{
+		const std::vector<json11::Json>& a = json.array_items();
+		if (a.size() < 3)
+		{
+			return glm::vec3(0);
+		}
+		return glm::vec3(a[0].number_value(), a[1].number_value(), a[2].number_value());
+	}
+
+	/**
+	* JSONの配列データをglm::quatに変換する
+	*
+	* @param json 変換元となる配列データ
+	*
+	* @param return jsonを変換して出来たquatの値
+	*/
+	glm::quat GetQuat(const json11::Json& json)
+	{
+		const std::vector <json11::Json>& a = json.array_items();
+		if (a.size() < 4)
+		{
+			return glm::quat(0, 0, 0, 1);
+		}
+		return glm::quat(
+			static_cast<float>(a[3].number_value()),
+			static_cast<float>(a[0].number_value()),
+			static_cast<float>(a[1].number_value()),
+			static_cast<float>(a[2].number_value())
+		);
+	}
+
+	/**
+	* JSONの配列データをglm::mat4に変換する
+	*
+	* @param json 変換元となる配列データ
+	*
+	* @return jsonを変換してできたmat4の値
+	*/
+	glm::mat4 GetMat4(const json11::Json& json)
+	{
+		const std::vector<json11::Json>& a = json.array_items();
+		if (a.size() < 16)
+		{
+			return glm::mat4(1);
+		}
+		return glm::mat4(
+			a[0].number_value(), a[1].number_value(), a[2].number_value(), a[3].number_value(),
+			a[4].number_value(), a[5].number_value(), a[6].number_value(), a[7].number_value(),
+			a[8].number_value(), a[9].number_value(), a[10].number_value(), a[11].number_value(),
+			a[12].number_value(), a[13].number_value(), a[14].number_value(), a[15].number_value()
+		);
+	}
+
+	/**
+	* アクセッサが指定するバイナリデータの位置とバイト数を取得する
+	*
+	* @param accessor glTFアクセッサ
+	* @param bufferViews バイナリデータを分割管理するためのデータ配列
+	* @param binFiles バイナリファイルの配列
+	* @param pp 取得したバイナリデータの位置
+	* @param pLength 取得したバイナリデータのバイト数
+	* @param pStride 取得したバイナリデータのデータ幅(頂点データの定義で使用)
+	*/
+	void GetBuffer(const json11::Json& accessor, const json11::Json& bufferViews,
+		const std::vector<std::vector<char>>& binFiles, const void** pp, size_t* pLength,
+		int* pStride = nullptr)
+	{
+		const int bufferViewId = accessor["bufferView"].int_value();
+		const int byteOffset = accessor["byteOffset"].int_value();
+		const json11::Json bufferView = bufferViews[bufferViewId];
+		const int bufferId = bufferView["buffer"].int_value();
+		const int baesByteOffset = bufferView["byteOffset"].int_value();
+		int byteLength = bufferView["byteLength"].int_value();
+		if (!accessor["count"].is_null())
+		{
+			int unitBytesize;
+			switch (accessor["componentType"].int_value())
+			{
+			case GL_BYTE:
+			case GL_UNSIGNED_BYTE:
+				unitBytesize = 1;
+				break;
+			case GL_SHORT:
+			case GL_UNSIGNED_SHORT:
+				unitBytesize = 2;
+				break;
+			default:
+				unitBytesize = 4;
+				break;
+			}
+			const std::string& type = accessor["type"].string_value();
+			static const char* const typeNameList[] = { "SCALAR", "VEC2","VEC4", "MAT4" };
+			static const int typeSizeList[] = { 1, 2, 3, 4, 16 };
+			int typeSize = 1;
+			for (size_t i = 0; i < 5; i++)
+			{
+				if (type == typeNameList[i])
+				{
+					typeSize = typeSizeList[i];
+					break;
+				}
+			}
+			if (typeSize < 0)
+			{
+				std::cerr << "[エラー]" << __func__ << ":アクセッサの型(" << type << ")には未対応です\n";
+				byteLength = 0;
+			}
+			else
+			{
+				byteLength = std::min(byteLength, accessor["count"].int_value() * unitBytesize * typeSize);
+			}
+		}
+		if (pStride)
+		{
+			*pStride = bufferView["byteStride"].int_value();
+		}
+		*pLength = byteLength;
+		*pp = binFiles[bufferId].data() + baesByteOffset;
+	}
+
 	/**
 	* メッシュバッファを初期化する
 	*
@@ -163,6 +324,208 @@ namespace Mesh
 
 		files.insert(std::make_pair(p->name, p));
 		std::cout << "[情報]" << __func__ << ":メッシュ" << name << "を追加\n";
+		return true;
+	}
+
+	/**
+	* 頂点属性を設定
+	*
+	* @param prim 頂点データを設定するプリミティブ
+	* @param index 設定する頂点属性のインデックス
+	* @param accessor 頂点データの格納情報
+	* @param bufferViews 頂点データを参照するためのバッファ ビュー配列
+	* @param binFiles 頂点データを格納しているバイナリデータ配列
+	*
+	* retval true 設定成功
+	* retval false 設定失敗
+	*/
+	bool Buffer::SetAttribute(Primitive* prim, int index, const json11::Json& accessor,
+		const json11::Json& bufferViews, const std::vector<std::vector<char>>& binFiles)
+	{
+		if (accessor.is_null())
+		{
+			std::cerr << "[エラー]" << __func__ << ":アクセッサがnullです\n";
+			return true;
+		}
+		static const char* const typeNameList[] = { "SCALAR", "VEC2", "VEC3", "VEC4" };
+		static const int typeSizeList[] = { 1,2,3,4 };
+		const std::string& type = accessor["type"].string_value();
+		int size = 1;
+		for (size_t i = 0; i < 4; i++)
+		{
+			if (type == typeNameList[i])
+			{
+				size = typeSizeList[i];
+				break;
+			}
+		}
+		if (size < 0)
+		{
+			std::cerr << "[エラー]" << __func__ << ":" << type << "は頂点属性に設定できません\n";
+			return false;
+		}
+		const void* p;
+		size_t byteLength;
+		int byteStride;
+		GetBuffer(accessor, bufferViews, binFiles, &p, &byteLength, &byteStride);
+		const GLenum componentType = accessor["componentType"].int_value();
+		prim->vao->Bind();
+		prim->vao->VertexAttribPointer(index, size, componentType, GL_FALSE, byteStride, vboEnd);
+		prim->vao->Unbind();
+
+		vbo.BufferSubData(vboEnd, byteLength, p);
+		vboEnd += ((byteLength + 3) / 4) * 4;//4バイト境界に整列
+		return true;
+	}
+
+	/**
+	* glTFファイルを読み込む
+	*
+	* @param path glTFファイル名
+	*
+	* @retval true 読み込み成功
+	* retval false 読み込み失敗
+	*/
+	bool Buffer::LoadMesh(const char* path)
+	{
+		//glTFファイルを読み込む
+		std::vector<char> gltfFile = ReadFile(path);
+		if (gltfFile.empty())
+		{
+			return false;
+		}
+		gltfFile.push_back('\0');
+
+		//JSON解析
+		std::string error;
+		const json11::Json  json = json11::Json::parse(gltfFile.data(), error);
+		if (!error.empty())
+		{
+			std::cerr << "[エラー]" << __func__ << ":" << path <<
+				"の読み込みに失敗しました\n " << error << "\n";
+			return false;
+		}
+		//バイナリファイルを読み込む
+		std::vector<std::vector<char>> binFiles;
+		for (const json11::Json& buffer : json["buffers"].array_items())
+		{
+			const json11::Json& uri = buffer["uri"];
+			if (!uri.is_string())
+			{
+				std::cerr << "[エラー]" << __func__ << ":" << path << "に不正なuriがあります\n";
+				return false;
+			}
+			const std::string binPath = std::string("Res/") + uri.string_value();
+			binFiles.push_back(ReadFile(binPath.c_str()));
+			if (binFiles.back().empty())
+			{
+				return false;
+			}
+		}
+		FilePtr pFile = std::make_shared<File>();
+		File& file = *pFile;
+
+		//頂点データとインデックスデータをGPUメモリへ転送
+		const json11::Json& accessors = json["accessors"];
+		const json11::Json& bufferViews = json["bufferViews"];
+		file.meshes.reserve(json["meshs"].array_items().size());
+		for (const auto& currentMesh : json["meshs"].array_items())
+		{
+			Mesh mesh;
+			mesh.name = currentMesh["name"].string_value();
+			const std::vector<json11::Json>& primitives = currentMesh["primitives"].array_items();
+			mesh.primitives.resize(primitives.size());
+			for (size_t primId = 0; primId < primitives.size(); primId++)
+			{
+				const json11::Json& primitive = currentMesh["primitives"][primId];
+
+				//頂点インデックス
+				{
+					const int accessorId_index = primitive["indices"].int_value();
+					const json11::Json& accessor = accessors[accessorId_index];
+					if (accessor["type"].string_value() != "SCALAR")
+					{
+						std::cerr << "ERROR:インデックスデータ タイプはSCALARでなくてはなりません\n";
+						std::cerr << "type =" << accessor["type"].string_value() << "\n";
+						return false;
+					}
+					mesh.primitives[primId].mode =
+						primitive["mode"].is_null() ? GL_TRIANGLES : primitive["mode"].int_value();
+					mesh.primitives[primId].count = accessor["count"].int_value();
+					mesh.primitives[primId].type = accessor["componentType"].int_value();
+					mesh.primitives[primId].indices = reinterpret_cast<const GLvoid*>(iboEnd);
+
+					const void* p;
+					size_t byteLength;
+					GetBuffer(accessor, bufferViews, binFiles, &p, &byteLength);
+					ibo.BufferSubData(iboEnd, byteLength, p);
+					iboEnd += ((byteLength + 3) / 4) * 4;//次に来るのがどのデータ型でも大丈夫なように4バイト境界に整列
+				}
+				//頂点属性
+				const json11::Json& attributes = primitive["attributes"];
+				const int accessorId_position = attributes["POSITION"].int_value();
+				const int accessorId_normal =
+					attributes["NORMAL"].is_null() ? -1 : attributes["NORMAL"].int_value();
+				const int accessorId_texcoord =
+					attributes["TEXCOORD_0"].is_null() ? -1 : attributes["TECCOORD_0"].int_value();
+				mesh.primitives[primId].vao = std::make_shared<VertexArrayObject>();
+				mesh.primitives[primId].vao->Create(vbo.Id(), ibo.Id());
+				SetAttribute(&mesh.primitives[primId], 0,
+					accessors[accessorId_position], bufferViews, binFiles);
+				SetAttribute(&mesh.primitives[primId], 1,
+					accessors[accessorId_texcoord], bufferViews, binFiles);
+				SetAttribute(&mesh.primitives[primId], 2,
+					accessors[accessorId_normal], bufferViews, binFiles);
+
+				mesh.primitives[primId].material = primitive["material"].int_value();
+			}
+			file.meshes.push_back(mesh);
+		}
+		//マテリアルを取得
+		{
+			const std::vector<json11::Json> materials = json["materials"].array_items();
+			file.materials.reserve(materials.size());
+			for (const json11::Json& material : materials)
+			{
+				std::string texturePath;
+				const json11::Json& pbr = material["pbrMetallicRoughness"];
+				const json11::Json& index = pbr["baseColorTexture"]["index"];
+				if (index.is_number())
+				{
+					const int textureId = index.int_value();
+					const json11::Json& texture = json["textures"][textureId];
+					const int imageSourceId = texture["source"].int_value();
+					const json11::Json& imageName = json["images"][imageSourceId]["name"];
+					if (imageName.is_string())
+					{
+						texturePath = std::string("Res/") + imageName.string_value() + ".tga";
+					}
+				}
+				glm::vec4 col(0, 0, 0, 1);
+				const std::vector<json11::Json>& baseColorFactor = pbr["baseColorFactor"].array_items();
+				if (baseColorFactor.size() >= 4)
+				{
+					for (size_t i = 0; i < 4; i++)
+					{
+						col[i] = static_cast<float>(baseColorFactor[i].number_value());
+					}
+				}
+				Texture::Image2DPtr tex;
+				if (!texturePath.empty())
+				{
+					tex = Texture::Image2D::Create(texturePath.c_str());
+				}
+				file.materials.push_back(CreateMaterial(col,tex));
+			}
+		}
+		file.name = path;
+		files.insert(std::make_pair(file.name, pFile));
+
+		std::cout << "[INFO]" << __func__ << ":" << path << "を読み込みました\n";
+		for (size_t i = 0; i < file.meshes.size(); i++)
+		{
+			std::cout << "mesh[" << i << "] =" << file.meshes[i].name << "\n";
+		}
 		return true;
 	}
 
