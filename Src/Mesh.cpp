@@ -143,7 +143,7 @@ namespace Mesh
 				break;
 			}
 			const std::string& type = accessor["type"].string_value();
-			static const char* const typeNameList[] = { "SCALAR", "VEC2","VEC4", "MAT4" };
+			static const char* const typeNameList[] = { "SCALAR", "VEC2","VEC3", "VEC4", "MAT4" };
 			static const int typeSizeList[] = { 1, 2, 3, 4, 16 };
 			int typeSize = 1;
 			for (size_t i = 0; i < 5; i++)
@@ -428,8 +428,8 @@ namespace Mesh
 		//頂点データとインデックスデータをGPUメモリへ転送
 		const json11::Json& accessors = json["accessors"];
 		const json11::Json& bufferViews = json["bufferViews"];
-		file.meshes.reserve(json["meshs"].array_items().size());
-		for (const auto& currentMesh : json["meshs"].array_items())
+		file.meshes.reserve(json["meshes"].array_items().size());
+		for (const auto& currentMesh : json["meshes"].array_items())
 		{
 			Mesh mesh;
 			mesh.name = currentMesh["name"].string_value();
@@ -467,7 +467,7 @@ namespace Mesh
 				const int accessorId_normal =
 					attributes["NORMAL"].is_null() ? -1 : attributes["NORMAL"].int_value();
 				const int accessorId_texcoord =
-					attributes["TEXCOORD_0"].is_null() ? -1 : attributes["TECCOORD_0"].int_value();
+					attributes["TEXCOORD_0"].is_null() ? -1 : attributes["TEXCOORD_0"].int_value();
 				mesh.primitives[primId].vao = std::make_shared<VertexArrayObject>();
 				mesh.primitives[primId].vao->Create(vbo.Id(), ibo.Id());
 				SetAttribute(&mesh.primitives[primId], 0,
@@ -610,14 +610,26 @@ namespace Mesh
 		const Material m = CreateMaterial(glm::vec4(1), nullptr);
 		AddMesh(name, p, m);
 	}
+
+	/**
+	* シェーダにビュー プロジェクション行列
+	*
+	* @param matVP ビュー プロジェクション行列
+	*/
+	void Buffer::SetViewProjectionMatrix(const glm::mat4& matVP) const
+	{
+		progStaticMesh->Use();
+		progStaticMesh->SetViewProjectionMatrix(matVP);
+		glUseProgram(0);
+	}
+
 	/**
 	* メッシュを描画する
 	*
 	* @param file 描画するファイル
-	* @param matMVP 描画に使用するビュープロジェクション行列
 	* @param matM 描画に使用するモデル行列
 	*/
-	void Draw(const FilePtr& file, const glm::mat4& matVP, const glm::mat4& matM)
+	void Draw(const FilePtr& file, const glm::mat4& matM)
 	{
 		if (!file || file->meshes.empty() || file->materials.empty())
 		{
@@ -631,7 +643,6 @@ namespace Mesh
 				p.vao->Bind();
 				const Material& m = file->materials[p.material];
 				m.program->Use();
-				m.program->SetViewProjectionMatrix(matVP);
 				m.program->SetModelMatrix(matM);
 				glActiveTexture(GL_TEXTURE0);
 				
