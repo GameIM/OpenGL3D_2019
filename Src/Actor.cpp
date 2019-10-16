@@ -34,8 +34,35 @@ void Actor::Update(float deltaTime)
 	position += velocity * deltaTime;
 
 	//衝突判定の更新
-	colWorld = colLocal;
-	colWorld.center += position;
+	const glm::mat4 matT = glm::translate(glm::mat4(1), position);
+	const glm::mat4 matR_Y = glm::rotate(glm::mat4(1), rotation.y, glm::vec3(0, 1, 0));
+	const glm::mat4 matR_ZY = glm::rotate(matR_Y, rotation.z, glm::vec3(0, 0, -1));
+	const glm::mat4 matR_XZY = glm::rotate(matR_ZY, rotation.x, glm::vec3(1, 0, 0));
+	const glm::mat4 matS = glm::scale(glm::mat4(1), scale);
+	const glm::mat4 matModel = matT * matR_XZY * matS;
+	colWorld.type = colLocal.type;
+	switch (colLocal.type)
+	{
+	case Collision::Shape::Type::sphere:
+		colWorld.s.center = matModel * glm::vec4(colLocal.s.center, 1);
+		colWorld.s.r = colLocal.s.r;
+		break;
+
+	case Collision::Shape::Type::capsule:
+		colWorld.c.seg.a = matModel * glm::vec4(colLocal.c.seg.a, 1);
+		colWorld.c.seg.b = matModel * glm::vec4(colLocal.c.seg.b, 1);
+		colWorld.c.r = colLocal.c.r;
+		break;
+
+	case Collision::Shape::Type::obb:
+		colWorld.obb.center = matModel * glm::vec4(colLocal.obb.center, 1);
+		for (size_t i = 0; i < 3; i++)
+		{
+			colWorld.obb.axis[i] = matR_XZY * glm::vec4(colLocal.obb.axis[i], 1);
+		}
+		colWorld.obb.e = colLocal.obb.e;
+		break;
+	}
 }
 
 /**
@@ -146,6 +173,20 @@ void ActorList::Update(float deltaTime)
 			e->Update(deltaTime);
 		}
 	}
+
+	//死亡したアクターを削除する
+	for (auto i = actors.begin(); i != actors.end();)
+	{
+		const ActorPtr& e = *i;
+		if (!e || e->health <= 0)
+		{
+			i = actors.erase(i);
+		}
+		else
+		{
+			i++;
+		}
+	}
 }
 
 /**
@@ -191,9 +232,18 @@ void DetectCollision(const ActorPtr& a, const ActorPtr& b, CollisionHandlertype 
 	{
 		return;
 	}
-	if (Collision::TestSphereSphere(a->colWorld, b->colWorld))
+	glm::vec3 pa, pb;
+	if (Collision::TestShapeShape(a->colWorld, b->colWorld,&pa, &pb))
 	{
-		handler(a, b, b->colWorld.center);
+		if (handler)
+		{
+			handler(a, b, pb);
+		}
+		else
+		{
+			a->OnHit(b, pb);
+			b->OnHit(a, pa);
+		}
 	}
 }
 
@@ -216,9 +266,19 @@ void DetectCollision(const ActorPtr& a, ActorList& b, CollisionHandlertype handl
 		{
 			continue;
 		}
-		if (Collision::TestSphereSphere(a->colWorld, actorB->colWorld))
+		glm::vec3 pa, pb;
+		if (Collision::TestShapeShape(a->colWorld, actorB->colWorld, &pa, &pb))
 		{
-			handler(a, actorB, actorB->colWorld.center);
+			if (handler)
+			{
+				handler(a, actorB, pb);
+			}
+			
+			else
+			{
+				a->OnHit(actorB, pb);
+				actorB->OnHit(a, pa);
+			}
 			if (a->health <= 0)
 			{
 				break;
@@ -248,9 +308,18 @@ void DetectCollision(ActorList& a, ActorList& b, CollisionHandlertype handler)
 			{
 				continue;
 			}
-			if (Collision::TestSphereSphere(actorA->colWorld, actorB->colWorld))
+			glm::vec3 pa, pb;
+			if (Collision::TestShapeShape(actorA->colWorld, actorB->colWorld, &pa, &pb))
 			{
-				handler(actorA, actorB, actorB->colWorld.center);
+				if (handler)
+				{
+					handler(actorA, actorB, pb);
+				}
+				else
+				{
+					actorA->OnHit(actorB, pb);
+					actorB->OnHit(actorA, pa);
+				}
 				if (actorA->health <= 0)
 				{
 					break;
