@@ -3,13 +3,17 @@
 */
 #ifndef _MAINGAMESCENE_H_INCLUDED
 #define _MAINGAMESCENE_H_INCLUDED
+
 #include "Scene.h"
 #include "Sprite.h"
 #include "Font.h"
 #include "Mesh.h"
 #include "Terrain.h"
 #include "Actor.h"
+#include "PlayerActor.h"
+#include "JizoActor.h"
 #include <vector>
+#include <random>
 
 /**
 * タイトル画面
@@ -26,16 +30,23 @@ public:
 	virtual void Render()override;
 	virtual void Finalize() override {};
 
+	bool HandleJizoEffects(int id, const glm::vec3& pos);
+
 private:
+
 	bool flag = false;
+	std::mt19937 rand;
+	int jizoId = -1;//現在戦闘中のお地蔵様のID
+	bool achivements[4] = { false, false, false, false };//敵討伐状態
 	std::vector<Sprite> sprites;
 	SpriteRenderer spriteRenderer;
 	FontRenderer fontRenderer;
 	Mesh::Buffer meshBuffer;
 	Terrain::HeightMap heightMap;
-	StaticMeshActorPtr player;
+	PlayerActorPtr player;
 	ActorList enemies;
 	ActorList trees;
+	ActorList objects;
 
 	struct Camera
 	{

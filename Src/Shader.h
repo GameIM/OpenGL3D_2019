@@ -73,6 +73,10 @@ namespace Shader
 		void SetLightList(const LightList&);
 		void SetViewProjectionMatrix(const glm::mat4&);
 		void SetModelMatrix(const glm::mat4&);
+
+		//プログラムIDを取得する
+		GLuint Get() const { return id; }
+
 	private:
 		GLuint id = 0;//プログラムID
 

@@ -10,6 +10,9 @@
 #include <memory>
 #include <functional>
 
+class Actor;
+using ActorPtr = std::shared_ptr<Actor>;
+
 /**
 * シーンに配置するオブジェクト
 */
@@ -23,6 +26,7 @@ public:
 	virtual void Update(float);
 	virtual void UpdateDrawData(float);
 	virtual void Draw();
+	virtual void OnHit(const ActorPtr&, const glm::vec3&) {};
 
 public:
 	std::string name;//アクターの名前
@@ -31,8 +35,8 @@ public:
 	glm::vec3 scale = glm::vec3(1);
 	glm::vec3 velocity = glm::vec3(0);//速度
 	int health = 0;//体力
-	Collision::Sphere colLocal;
-	Collision::Sphere colWorld;
+	Collision::Shape colLocal;
+	Collision::Shape colWorld;
 };
 using ActorPtr = std::shared_ptr<Actor>;
 
@@ -76,6 +80,7 @@ public:
 	void Update(float);
 	void UpdateDrawData(float);
 	void Draw();
+	bool Empty() const { return actors.empty(); }
 
 	//イテレーターを取得する関数
 	iterator begin() { return actors.begin(); }
@@ -89,7 +94,10 @@ private:
 using CollisionHandlertype =
 std::function<void(const ActorPtr&, const ActorPtr&, const glm::vec3&)>;
 
-void DetectCollision(const ActorPtr& a, const ActorPtr& b, CollisionHandlertype handler);
-void DetectCollision(const ActorPtr& a, ActorList& b, CollisionHandlertype handler);
-void DetectCollision(ActorList& a, ActorList& b, CollisionHandlertype handler);
+void DetectCollision(const ActorPtr& a, const ActorPtr& b,
+	CollisionHandlertype handler = nullptr);
+void DetectCollision(const ActorPtr& a, ActorList& b,
+	CollisionHandlertype handler = nullptr);
+void DetectCollision(ActorList& a, ActorList& b,
+	CollisionHandlertype handler = nullptr);
 #endif //Actor_H_INCLUDED
