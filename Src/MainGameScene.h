@@ -12,6 +12,7 @@
 #include "Actor.h"
 #include "PlayerActor.h"
 #include "JizoActor.h"
+#include "Light.h"
 #include <vector>
 #include <random>
 
@@ -47,6 +48,9 @@ private:
 	ActorList enemies;
 	ActorList trees;
 	ActorList objects;
+
+	LightBuffer lightBuffer;
+	ActorList lights;
 
 	struct Camera
 	{

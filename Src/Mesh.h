@@ -44,7 +44,7 @@ namespace Mesh
 	struct Material
 	{
 		glm::vec4 baseColor = glm::vec4(1);
-		Texture::Image2DPtr texture;
+		Texture::InterfacePtr texture[16];
 		Shader::ProgramPtr program;
 		//スケルタルメッシュ用のシェーダー
 		Shader::ProgramPtr progSkeletalMesh;
@@ -102,11 +102,18 @@ namespace Mesh
 		bool LoadMesh(const char* path);
 		FilePtr GetFile(const char* name) const;
 		void SetViewProjectionMatrix(const glm::mat4&) const;
+		void SetCameraposition(const glm::vec3&) const;
+		void SetTime(double) const;
+
 		void AddCude(const char* name);
 
 		//スケルタルアニメーションに対応したメッシュの読み込みと取得
 		bool LoadSkeletalMesh(const char* path);
 		SkeletalMeshPtr GetSkeletalMesh(const char* meshName) const;
+
+		const Shader::ProgramPtr& GetStaticMeshShader() const { return progStaticMesh; }
+		const Shader::ProgramPtr& GetTerrainShader() const { return progTerrain; }
+		const Shader::ProgramPtr& GetWaterShader() const { return progWater; }
 
 	private:
 		BufferObject vbo;
@@ -115,8 +122,10 @@ namespace Mesh
 		GLintptr iboEnd = 0;
 		std::unordered_map<std::string, FilePtr> files;
 		Shader::ProgramPtr progStaticMesh;
+		Shader::ProgramPtr progTerrain;
+		Shader::ProgramPtr progWater;
 
-		//スケルタルアニメーションに対応したメッシュを保持するメンバ変数
+		//タルアニメーションに対応したメッシュを保持するメンバ変数
 		Shader::ProgramPtr progSkeletalMesh;
 		struct MeshIndex
 		{
