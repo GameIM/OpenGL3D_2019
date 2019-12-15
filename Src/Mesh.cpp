@@ -207,6 +207,17 @@ namespace Mesh
 		}
 		SkeletalAnimation::BindUniformBlock(progSkeletalMesh);
 
+		progTerrain = Shader::Program::Create("Res/Terrain.vert", "Res/Terrain.frag");
+		if (progTerrain->IsNull())
+		{
+			return false;
+		}
+		progWater = Shader::Program::Create("Res/Terrain.vert", "Res/Water.frag");
+		if (progWater->IsNull())
+		{
+			return false;
+		}
+
 		vboEnd = 0;
 		iboEnd = 0;
 		files.reserve(100);
@@ -229,7 +240,7 @@ namespace Mesh
 	{
 		vbo.BufferSubData(vboEnd, size, data);
 		const GLintptr tmp = vboEnd;
-		vboEnd += size;
+		vboEnd += ((size + 3) / 4) * 4;
 		return tmp;
 	}
 
@@ -246,7 +257,7 @@ namespace Mesh
 	{
 		ibo.BufferSubData(iboEnd, size, data);
 		const GLintptr tmp = iboEnd;
-		iboEnd += size;
+		iboEnd += ((size + 3) / 4) * 4;
 		return tmp;
 	}
 
@@ -302,7 +313,7 @@ namespace Mesh
 	{
 		Material m;
 		m.baseColor = color;
-		m.texture = texture;
+		m.texture[0] = texture;
 		m.program = progStaticMesh;
 		m.progSkeletalMesh = progSkeletalMesh;
 		return m;
@@ -634,7 +645,49 @@ namespace Mesh
 		progStaticMesh->SetViewProjectionMatrix(matVP);
 		progSkeletalMesh->Use();
 		progSkeletalMesh->SetViewProjectionMatrix(matVP);
+		progTerrain->Use();
+		progTerrain->SetViewProjectionMatrix(matVP);
+		progWater->Use();
+		progWater->SetViewProjectionMatrix(matVP);
 		glUseProgram(0);
+	}
+
+	/**
+	* シェーダーにカメラのワールド座標を設定する
+	*
+	* @param pos カメラのワールド座標
+	*/
+	void Buffer::SetCameraposition(const glm::vec3& pos) const
+	{
+		progStaticMesh->Use();
+		progStaticMesh->SetCameraPostion(pos);
+		progSkeletalMesh->Use();
+		progSkeletalMesh->SetCameraPostion(pos);
+		progTerrain->Use();
+		progTerrain->SetCameraPostion(pos);
+		progWater->Use();
+		progWater->SetCameraPostion(pos);
+		glUseProgram(0);
+	}
+
+	/**
+	* シェーダーにアプリが起動してからの経過時間を設定する
+	*
+	* @param time アプリが起動してからの経過時間(秒)
+	*/
+	void Buffer::SetTime(double time) const
+	{
+		const float ftime = static_cast<float>(std::fmod(time, 24 * 60 * 60));
+		progStaticMesh->Use();
+		progStaticMesh->SetTime(ftime);
+		progSkeletalMesh->Use();
+		progSkeletalMesh->SetTime(ftime);
+		progTerrain->Use();
+		progTerrain->SetTime(ftime);
+		progWater->Use();
+		progWater->SetTime(ftime);
+		glUseProgram(0);
+
 	}
 
 	/**
@@ -658,18 +711,21 @@ namespace Mesh
 				const Material& m = file->materials[p.material];
 				m.program->Use();
 				m.program->SetModelMatrix(matM);
-				glActiveTexture(GL_TEXTURE0);
-				
+
 				//テクスチャがある時は、そのテクスチャIDを設定する。ない時は0にする
-				if (m.texture)
+				for (int i = 0; i < sizeof(m.texture) / sizeof(m.texture[0]); i++)
 				{
-					glBindTexture(GL_TEXTURE_2D, m.texture->Get());
+					glActiveTexture(GL_TEXTURE0 + i);
+					if (m.texture[i])
+					{
+						glBindTexture(m.texture[i]->Target(),m.texture[i]->Get());
+					}
+					else
+					{
+						glBindTexture(GL_TEXTURE_2D, 0);
+					}
 				}
-				else
-				{
-					glBindTexture(GL_TEXTURE_2D, 0);
-				}
-				glDrawElementsBaseVertex(p.mode, p.count,p.type, p.indices, p.baseVertex);
+				glDrawElementsBaseVertex(p.mode, p.count, p.type, p.indices, p.baseVertex);
 				p.vao->Unbind();
 			}
 		}

@@ -68,6 +68,10 @@ bool MainGameScene::Initialize()
 	spr.Scale(glm::vec2(2));
 	sprites.push_back(spr);
 	meshBuffer.Init(1'000'000 * sizeof(Mesh::Vertex), 3'000'000 * sizeof(GLushort));
+	lightBuffer.Init(1);
+	lightBuffer.BindToShader(meshBuffer.GetStaticMeshShader());
+	lightBuffer.BindToShader(meshBuffer.GetTerrainShader());
+	lightBuffer.BindToShader(meshBuffer.GetWaterShader());
 	meshBuffer.LoadMesh("Res/red_pine_tree.gltf");
 	meshBuffer.LoadMesh("Res/jizo_statue.gltf");
 	meshBuffer.LoadSkeletalMesh("Res/bikuni.gltf");
@@ -83,9 +87,33 @@ bool MainGameScene::Initialize()
 	{
 		return false;
 	}
+	if (!heightMap.CreateWaterMesh(meshBuffer, "Water", -10))//水面の高さは要調整
+	{
+		return false;
+	}
+
 	glm::vec3 startPos(100, 0, 100);
 	startPos.y = heightMap.Height(startPos);
 	player = std::make_shared<PlayerActor>(&heightMap, meshBuffer, startPos);
+
+	//ライトを配置
+	{
+		lights.Add(std::make_shared<DirectionalLightActor>(
+			"DirectinalLight", glm::vec3(0.8f), glm::normalize(glm::vec3(1, -2, -1))));
+		for (int i = 0; i < 50; i++)
+		{
+			glm::vec3 color(1, 0.8f, 0.5f);
+			glm::vec3 position(0);
+			position.x = static_cast<float>(std::uniform_int_distribution<>(80, 120)(rand));
+			position.z= static_cast<float>(std::uniform_int_distribution<>(80, 120)(rand));
+			position.y = heightMap.Height(position) + 1;
+			lights.Add(std::make_shared<PointLightActor>("PointLight", color, position));
+		}
+	}
+
+	lights.Update(0);
+	lightBuffer.Update(lights, glm::vec3(0.1f, 0.05f, 0.15f));
+	heightMap.UpdateLightIndex(lights);
 
 	//お地蔵様を配置
 	{
@@ -274,6 +302,38 @@ void MainGameScene::Update(float deltaTime)
 		}
 	}
 
+	//ライトの更新
+	glm::vec3 ambientColor(0.1f, 0.05f, 0.15f);
+	lightBuffer.Update(lights, ambientColor);
+	for (auto e : trees)
+	{
+		const std::vector<ActorPtr> neighborhood = lights.FindNearbyActors(e->position, 20);
+		std::vector<int> pointLightIndex;
+		std::vector<int> spotLghtIndex;
+		pointLightIndex.reserve(neighborhood.size());
+		spotLghtIndex.reserve(neighborhood.size());
+		for (auto light : neighborhood)
+		{
+			if (PointLightActorPtr p = std::dynamic_pointer_cast<PointLightActor>(light))
+			{
+				if (pointLightIndex.size() < 8)
+				{
+					pointLightIndex.push_back(p->index);
+				}
+			}
+			else if (SpotLightActorPtr p = std::dynamic_pointer_cast<SpotLightActor>(light))
+			{
+				if (spotLghtIndex.size() < 8)
+				{
+					spotLghtIndex.push_back(p->index);
+				}
+			}
+		}
+		StaticMeshActorPtr p = std::static_pointer_cast<StaticMeshActor>(e);
+		p->SetPointLightList(pointLightIndex);
+		p->SetSpotLightList(spotLghtIndex);
+	}
+
 	//敵を全滅させたら目的達成フラグをtrueにする
 	if (jizoId >= 0)
 	{
@@ -288,6 +348,7 @@ void MainGameScene::Update(float deltaTime)
 	enemies.UpdateDrawData(deltaTime);
 	trees.UpdateDrawData(deltaTime);
 	objects.UpdateDrawData(deltaTime);
+	lights.Update(deltaTime);
 
 	const float w = window.Width();
 	const float h = window.Height();
@@ -309,22 +370,30 @@ void MainGameScene::Render()
 
 	glEnable(GL_DEPTH_TEST);
 
+	lightBuffer.Upload();
+	lightBuffer.Bind();
+
 	const glm::mat4 matView = glm::lookAt(camera.position, camera.target, camera.up);
 	const float aspectRatio =
 		static_cast<float>(window.Width()) / static_cast<float>(window.Height());
 	const glm::mat4 matProj =
 		glm::perspective(glm::radians(30.0f), aspectRatio, 1.0f, 1000.0f);
+	meshBuffer.SetViewProjectionMatrix(matProj * matView);
+	meshBuffer.SetCameraposition(camera.position);
+	meshBuffer.SetTime(window.Time());
+
 	glm::vec3 cubePos(100, 0, 100);
 	cubePos.y = heightMap.Height(cubePos);
 	const glm::mat4 matModel = glm::translate(glm::mat4(1),cubePos);
 	Mesh::Draw(meshBuffer.GetFile("Cube"), matModel);
 	Mesh::Draw(meshBuffer.GetFile("Terrain"), glm::mat4(1));
-	meshBuffer.SetViewProjectionMatrix(matProj * matView);
 	glm::vec3 treePos(110, 0, 110);
 	treePos.y = heightMap.Height(treePos);
 	const glm::mat4 matTreeModel =
 		glm::translate(glm::mat4(1), treePos) * glm::scale(glm::mat4(1), glm::vec3(3));
 	Mesh::Draw(meshBuffer.GetFile("Res/red_pine_tree.gltf"), matTreeModel);
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	Mesh::Draw(meshBuffer.GetFile("Water"), glm::mat4(1));
 
 	player->Draw();
 	enemies.Draw();
