@@ -218,6 +218,19 @@ namespace Mesh
 			return false;
 		}
 
+		//影描画用のシェーダープログラムを作成
+		progShadow = Shader::Program::Create("Res/StaticMesh.vert","Res/Shadow.frag");
+		progNonTexturedShadow = Shader::Program::Create(
+			"Res/StaticMesh.vert", "Res/NonTexturedShadow.frag");
+		progSkeletalShadow = Shader::Program::Create(
+			"Res/SkeletalMesh.vert", "Res/Shadow.frag");
+		if (progShadow->IsNull() ||
+			progNonTexturedShadow->IsNull() ||
+			progSkeletalShadow->IsNull())
+		{
+			return false;
+		}
+
 		vboEnd = 0;
 		iboEnd = 0;
 		files.reserve(100);
@@ -316,6 +329,7 @@ namespace Mesh
 		m.texture[0] = texture;
 		m.program = progStaticMesh;
 		m.progSkeletalMesh = progSkeletalMesh;
+		m.progShadow = progShadow;
 		return m;
 	}
 
@@ -635,6 +649,31 @@ namespace Mesh
 	}
 
 	/**
+	* 平面を追加する
+	*
+	* @param name 平面のメッシュ名
+	*/
+	FilePtr Buffer::AddPlane(const char* name)
+	{
+		const Vertex v[] =
+		{
+			{{-1,-1, 0}, {0,0}, {0,0,1}},
+			{{1, -1, 0}, {1,0}, {0,0,1}},
+			{{1,  1, 0}, {1,1}, {0,0,1}},
+			{{-1, 1, 0}, {0,1}, {0,0,1}},
+		};
+		const GLubyte i[] = { 0,1,2,2,3,0 };
+
+		const size_t vOffset = AddVertexData(v, sizeof(v));
+		const size_t iOffset = AddIndexData(i, sizeof(i));
+		const Primitive p = CreatePrimitive(6, GL_UNSIGNED_BYTE, iOffset, vOffset);
+		const Material m = CreateMaterial(glm::vec4(1), nullptr);
+		AddMesh(name, p, m);
+		return GetFile(name);
+	}
+
+
+	/**
 	* シェーダにビュー プロジェクション行列
 	*
 	* @param matVP ビュー プロジェクション行列
@@ -653,11 +692,38 @@ namespace Mesh
 	}
 
 	/**
+	* シェーダに影用のビュープロジェクション行列を設定する
+	*
+	* @param matVP 影用ビュープロジェクション行列
+	*/
+	void Buffer::SetShadowViewProjectionMatrix(const glm::mat4& matVP) const
+	{
+		progStaticMesh->Use();
+		progStaticMesh->SetShadowViewProjectionMatrix(matVP);
+		progSkeletalMesh->Use();
+		progSkeletalMesh->SetShadowViewProjectionMatrix(matVP);
+		progTerrain->Use();
+		progTerrain->SetShadowViewProjectionMatrix(matVP);
+		progWater->Use();
+		progWater->SetShadowViewProjectionMatrix(matVP);
+
+		//影用シェーダーには通常のビュープロジェクション行列を設定する
+		progShadow->Use();
+		progShadow->SetViewProjectionMatrix(matVP);
+		progNonTexturedShadow->Use();
+		progNonTexturedShadow->SetShadowViewProjectionMatrix(matVP);
+		progSkeletalShadow->Use();
+		progSkeletalShadow->SetShadowViewProjectionMatrix(matVP);
+		glUseProgram(0);
+	}
+
+
+	/**
 	* シェーダーにカメラのワールド座標を設定する
 	*
 	* @param pos カメラのワールド座標
 	*/
-	void Buffer::SetCameraposition(const glm::vec3& pos) const
+	void Buffer::SetCameraPosition(const glm::vec3& pos) const
 	{
 		progStaticMesh->Use();
 		progStaticMesh->SetCameraPostion(pos);
@@ -691,12 +757,37 @@ namespace Mesh
 	}
 
 	/**
+	* 影用の深度テクスチャをGLコンテキストに割り当てる
+	*
+	* @param tex 影用の深度テクスチャ
+	*/
+	void Buffer::BindShadowTexture(const Texture::InterfacePtr& texture)
+	{
+		shadowTextureTarget = texture->Target();
+		glActiveTexture(GL_TEXTURE0 + Shader::Program::shadowTextureBindingPoint);
+		glBindTexture(shadowTextureTarget, texture->Get());
+	}
+
+	/**
+	* 影用テクスチャの割り当てを解除する
+	*/
+	void Buffer::UnbindShadowTexture()
+	{
+		if (shadowTextureTarget != GL_NONE)
+		{
+			glActiveTexture(GL_TEXTURE0 + Shader::Program::shadowTextureBindingPoint);
+			glBindTexture(shadowTextureTarget, 0);
+			shadowTextureTarget = GL_NONE;
+		}
+	}
+
+	/**
 	* メッシュを描画する
 	*
 	* @param file 描画するファイル
 	* @param matM 描画に使用するモデル行列
 	*/
-	void Draw(const FilePtr& file, const glm::mat4& matM)
+	void Draw(const FilePtr& file, const glm::mat4& matM,DrawType drawType)
 	{
 		if (!file || file->meshes.empty() || file->materials.empty())
 		{
@@ -709,8 +800,13 @@ namespace Mesh
 			{
 				p.vao->Bind();
 				const Material& m = file->materials[p.material];
-				m.program->Use();
-				m.program->SetModelMatrix(matM);
+				Shader::ProgramPtr program = m.program;
+				if (drawType == DrawType::shadow)
+				{
+					program = m.progShadow;
+				}
+				program->Use();
+				program->SetModelMatrix(matM);
 
 				//テクスチャがある時は、そのテクスチャIDを設定する。ない時は0にする
 				for (int i = 0; i < sizeof(m.texture) / sizeof(m.texture[0]); i++)
