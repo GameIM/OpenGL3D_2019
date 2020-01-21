@@ -7,14 +7,15 @@ layout(location=1) in vec2 inTexCoord;
 layout(location=2) in vec3 inTBN[3];
 layout(location=5) in vec3 inRawPosition;
 layout(location=6) in vec3 inPosition;
-
+layout(location=7) in vec3 inShadowPosition;
 
 out vec4 fragColor;
 
 uniform sampler2D texColorArray[4];
 uniform sampler2D texNormalArray[3];
-uniform isamplerBuffer texPointLightIndex;
-uniform isamplerBuffer texSpotLightIndex;
+uniform isamplerBuffer texPointLightIndex;//use texelFetch
+uniform isamplerBuffer texSpotLightIndex;//use texelFetch
+uniform sampler2DShadow texShadow;
 
 const ivec2 mapSize = ivec2(200, 200);
 
@@ -71,12 +72,13 @@ void main()
 	normal += matTBN * (texture(texNormalArray[1],uv).rgb * 2.0 - 1.0) * ratio.r;
 	normal += matTBN * (texture(texNormalArray[2],uv).rgb * 2.0 - 1.0) * ratio.g;
 	normal = normalize(normal);
+
 	vec3 lightColor = ambientLight.color.rgb;
 	float power = max(dot(normal, -directionalLight.direction.xyz),0.0);
 	int offset = int(inRawPosition.z) * mapSize.x + int(inRawPosition.x);
 	ivec4 pointLightIndex = texelFetch(texPointLightIndex, offset);
-	lightColor += directionalLight.color.rgb * power;
-	
+	float shadow = texture(texShadow, inShadowPosition);//‰e‚Ì”ä—¦‚ðŽæ“¾
+	lightColor += directionalLight.color.rgb * power * shadow;
 	
 
 	for(int i = 0; i < 4; i++)

@@ -6,11 +6,13 @@ layout(location=0) in vec4 inColor;
 layout(location=1) in vec2 inTexCoord;
 layout(location=2) in vec3 inNormal;
 layout(location=3) in vec3 inPosition;
-
+layout(location=4) in vec3 inShadowPosition;
 
 out vec4 fragColor;
 
 uniform sampler2D texColor;
+uniform sampler2DShadow texShadow;
+
 
 struct AmbientLight
 {
@@ -68,7 +70,8 @@ void main()
 		vec3 lightDir = normalize(lightVector);
 		float cosTheta = clamp(dot(normal, lightDir), 0.0, 1.0);
 		float intensity = 1.0 / (1.0 + dot(lightVector, lightVector));
-		lightColor += pointLight[id].color.rgb * cosTheta * intensity;
+		float shadow = texture(texShadow, inShadowPosition);//‰e‚Ì”ä—¦‚ðŽæ“¾
+		lightColor += pointLight[id].color.rgb * cosTheta * intensity * shadow;
 	}
 
 	for(int i = 0; i < spotLightCount; i++)
@@ -81,7 +84,8 @@ void main()
 		float spotCosTheta = dot(lightDir, -spotLight[id].dirAndCutOff.xyz);
 		float cutOff = smoothstep(spotLight[id].dirAndCutOff.w,
 		spotLight[id].posAndInnerCutOff.w, spotCosTheta);
-		lightColor += spotLight[id].color.rgb * cosTheta * intensity * cutOff;
+		float shadow = texture(texShadow, inShadowPosition);//‰e‚Ì”ä—¦‚ðŽæ“¾
+		lightColor += spotLight[id].color.rgb * cosTheta * intensity * cutOff * shadow;
 	}
 
 	fragColor = texture(texColor,inTexCoord);
