@@ -12,9 +12,11 @@ layout(location=1) out vec2 outTexCoord;
 layout(location=2) out vec3 outTBN[3];
 layout(location=5) out vec3 outRawPosition;
 layout(location=6) out vec3 outPosition;
+layout(location=7) out vec3 outShadowPosition;
 
 uniform mat4 matMVP;
 uniform mat4 matModel;
+uniform mat4 matShadow;
 
 /**
 * メッシュ用頂点シェーダー
@@ -32,6 +34,8 @@ void main()
 	outTBN[1] = b;
 	outTBN[2] = n;
 	outPosition = vec3(matModel * vec4(vPosition, 1.0));
+	outShadowPosition = vPosition;
+	outShadowPosition.z -= 0.0005;//深度バイアス
 	outRawPosition = vPosition;
 	gl_Position = matMVP * (matModel * vec4(vPosition, 1.0));
 }
