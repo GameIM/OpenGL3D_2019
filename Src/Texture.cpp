@@ -356,12 +356,19 @@ namespace Texture
 	GLuint CreateImage2D(GLsizei width, GLsizei height, const GLvoid* data,
 		GLenum format, GLenum type)
 	{
+		return CreateImage2D(width, height, data, format, type, GL_RGBA8);
+	}
+
+
+	GLuint CreateImage2D(GLsizei width, GLsizei height, const GLvoid* data,
+		GLenum format, GLenum type, GLenum internalFormat)
+	{
 		GLuint id;
 		glGenTextures(1, &id);
 		glBindTexture(GL_TEXTURE_2D, id);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height,
-			0, format, type, data);
+		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat,
+			width, height, 0, format, type, data);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
 		const GLenum result = glGetError();
 		if (result != GL_NO_ERROR)
@@ -371,14 +378,13 @@ namespace Texture
 			glDeleteTextures(1, &id);
 			return 0;
 		}
-
 		//テクスチャのパロメータを設定する
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-		
+
 		//1要素の画像データの場合、(R,R,R,1)として読み取られるように設定する
 		if (format == GL_RED)
 		{
@@ -386,7 +392,7 @@ namespace Texture
 			glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzle);
 		}
 		glBindTexture(GL_TEXTURE_2D, 0);
-		
+
 		return id;
 	}
 
@@ -496,18 +502,47 @@ namespace Texture
 		imageData->data.swap(buf);
 		return true;
 	}
-/**
-* コンストラクタ
-*
-* @param texId テクスチャ オブジェクトのID
-*/
+
+	/**
+	* テクスチャラップモードを設定する
+	*
+	* @param mode 設定するテクスチャラップモード
+	*
+	* 横と縦の両方に同じラップモードを設定する
+	*/
+	void Interface::SetWrapMode(GLenum mode)
+	{
+		const GLuint id = Get();
+		if (!id)
+		{
+			std::cerr << "[警告]" << __func__ << ":テクスチャが設定されていません\n";
+		}
+		const GLenum target = Target();
+		glBindTexture(target, Get());
+		glTexParameteri(target, GL_TEXTURE_WRAP_S, mode);
+		glTexParameteri(target, GL_TEXTURE_WRAP_T, mode);
+		glBindTexture(target, 0);
+		const GLenum error = glGetError();
+		if (error)
+		{
+			std::cerr << "[エラー]" << __func__ << "テクスチャラップモードの設定に失敗(" <<
+				std::hex << error << " )\n";
+		}
+	}
+
+	/**
+	* コンストラクタ
+	*
+	* @param texId テクスチャ オブジェクトのID
+	*/
 	Image2D::Image2D(GLuint texId)
 	{
 		Reset(texId);
 	}
-/**
-*デストラクタ
-*/
+
+	/**
+	*デストラクタ
+	*/
 	Image2D::~Image2D()
 	{
 		glDeleteTextures(1, &id);

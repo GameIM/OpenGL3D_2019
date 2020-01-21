@@ -186,16 +186,23 @@ namespace Shader
 			GLint locSpotLightIndex = -1;
 			GLint locCameraPosition = -1;
 			GLint locTime = -1;
+			GLint locViewInfo = -1;
+			GLint CameraInfo = -1;
 			return;
 		}
-		locMatMVP = glGetUniformLocation(id, "matMVP");
-		locMatModel = glGetUniformLocation(id, "matModel");
+		locMatMVP =          glGetUniformLocation(id, "matMVP");
+		locMatModel =        glGetUniformLocation(id, "matModel");
+		locMatShadow = glGetUniformLocation(id, "matShadow");
 		locPointLightCount = glGetUniformLocation(id, "pointLightCount");
 		locPointLightIndex = glGetUniformLocation(id, "pointLightIndex");
-		locSpotLightCount = glGetUniformLocation(id, "spotLightCount");
-		locSpotLightIndex = glGetUniformLocation(id, "spotLightIndex");
-		locCameraPosition = glGetUniformLocation(id, "cameraPosition");
-		locTime = glGetUniformLocation(id, "Time");
+		locSpotLightCount =  glGetUniformLocation(id, "spotLightCount");
+		locSpotLightIndex =  glGetUniformLocation(id, "spotLightIndex");
+		locCameraPosition =  glGetUniformLocation(id, "cameraPosition");
+		locTime =            glGetUniformLocation(id, "time");
+		locViewInfo =        glGetUniformLocation(id, "viewInfo");
+		locCameraInfo =      glGetUniformLocation(id, "cameraInfo");
+		locBlurDirection = glGetUniformLocation(id, "blurDirection");
+		locMatInverseViewRotation = glGetUniformLocation(id, "matInverseViewRotation");
 
 		glUseProgram(id);
 		const GLint texColorLoc = glGetUniformLocation(id, "texColor");
@@ -240,6 +247,11 @@ namespace Shader
 		if (locTexCubeMap >= 0)
 		{
 			glUniform1i(locTexCubeMap, 6);
+		}
+		const GLint locTexShadow = glGetUniformLocation(id, "texShadow");
+		if (locTexShadow >= 0)
+		{
+			glUniform1i(locTexShadow, shadowTextureBindingPoint);
 		}
 
 		glUseProgram(0);
@@ -290,6 +302,33 @@ namespace Shader
 		if (locMatMVP >= 0)
 		{
 			glUniformMatrix4fv(locMatMVP, 1, GL_FALSE, &matVP[0][0]);
+		}
+	}
+
+	/**
+	* 描画に使われるビュー回転の逆行列を設定する
+	*
+	* @param matView 元になるビュー行列
+	*/
+	void Program::SetInverseViewRotationMatrix(const glm::mat4& matView)
+	{
+		if (locMatInverseViewRotation >= 0)
+		{
+			const glm::mat3 m = glm::inverse(glm::mat3(glm::transpose(glm::inverse(matView))));
+			glUniformMatrix3fv(locMatInverseViewRotation, 1, GL_FALSE, &m[0][0]);
+		}
+	}
+
+	/**
+	* 影の描画に使われるビュープロジェクション行列を設定する
+	*
+	* @param m 設定する影用ビュープロジェクション行列
+	*/
+	void Program::SetShadowViewProjectionMatrix(const glm::mat4& m)
+	{
+		if (locMatShadow >= 0)
+		{
+			glUniformMatrix4fv(locMatShadow, 1, GL_FALSE, &m[0][0]);
 		}
 	}
 
@@ -366,7 +405,52 @@ namespace Shader
 		}
 	}
 
+	/**
+	* 画面の情報を設定する
+	*
+	* @param w ウィンドウの幅(ピクセル数)
+	* @param h ウィンドウの高さ(ピクセル数)
+	* @param near 最小z距離(m単位)
+	* @param far 最大z距離(m単位)
+	*/
+	void Program::SetViewInfo(float w, float h, float near, float far)
+	{
+		if (locViewInfo >= 0)
+		{
+			glUniform4f(locViewInfo, 1.0f / w, 1.0f / h, near, far);
+		}
+	}
 
+	/**
+	* カメラの情報を設定する
+	*
+	* @param focalPlane 焦点面(ピントの合う位置のレンズからの距離.mm単位)
+	* @param focalLength 焦点距離(光が1点に集まる位置のレンズからの距離.mm単位)
+	* @param aperture 開口(光の取入口のサイズ.mm単位)
+	* @param sensorSize センサーサイズ(光を受けるセンサーの横幅.mm単位)
+	*/
+	void Program::SetCameraInfo(float focalPlane, float focalLength,
+		float aperture, float sesorSize)
+	{
+		if (locCameraInfo >= 0)
+		{
+			glUniform4f(locCameraInfo, focalPlane, focalLength, aperture, sesorSize);
+		}
+	}
+
+	/**
+	* ぼかし方向を設定する
+	*
+	* @param x 左右のぼかし方向にテクセルサイズを掛けた値
+	* @param y 上下のぼかし方向にテクセルサイズを掛けた値
+	*/
+	void Program::SetBlurDirection(float x, float y)
+	{
+		if (locBlurDirection >= 0)
+		{
+			glUniform2f(locBlurDirection, x, y);
+		}
+	}
 
 	/**
 	* プログラムオブジェクトを作成する
