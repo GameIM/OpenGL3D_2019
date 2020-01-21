@@ -13,6 +13,8 @@
 #include "PlayerActor.h"
 #include "JizoActor.h"
 #include "Light.h"
+#include "FramebufferObject.h"
+#include "Particle.h"
 #include <vector>
 #include <random>
 
@@ -34,6 +36,7 @@ public:
 	bool HandleJizoEffects(int id, const glm::vec3& pos);
 
 private:
+	void RenderMesh(Mesh::DrawType);
 
 	bool flag = false;
 	std::mt19937 rand;
@@ -52,12 +55,37 @@ private:
 	LightBuffer lightBuffer;
 	ActorList lights;
 
+	ParticleSystem particleSystem;
+
+	FramebufferObjectPtr fboMain;
+	FramebufferObjectPtr fboDepthOfField;
+	FramebufferObjectPtr fboBloom[6][2];
+	FramebufferObjectPtr fboShadow;
+
 	struct Camera
 	{
 		glm::vec3 target = glm::vec3(100, 0, 100);
 		glm::vec3 position = glm::vec3(100, 50, 150);
 		glm::vec3 up = glm::vec3(0, 1, 0);
 		glm::vec3 velocity = glm::vec3(0);
+
+		//画面パラメータ
+		float width = 1280;//画面の幅(ピクセル数)
+		float height = 720;//画面」の高さ(ピクセル数)
+		float near = 1;//最小z値(メートル)
+		float far = 500;//最大z値z(メートル)
+
+		//カメラパラメータ
+		float fnumber = 1.4f;//エフナンバー = カメラのF値
+		float fov = glm::radians(60.0f);//フィールドオブビュー = カメラの視野角(ラジアン)
+		float sensorSize = 36.0f;//センサーサイズ = カメラのセンサ―の横幅(ミリ)
+
+		//update関数で計算するパラメータ
+		float focalLength = 50.0f;//フォーカルレングス = 焦点距離(ミリ)
+		float aperture = 20.0f;//アパーチャ = 開口(ミリ)
+		float focalPlane = 10000.0f;//フォーカルプレ-ン = ピントの合う距離
+
+		void Update(const glm::mat4& matView);
 	};
 	Camera camera;
 };

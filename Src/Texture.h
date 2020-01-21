@@ -38,6 +38,8 @@ namespace Texture
 	};
 	GLuint CreateImage2D(GLsizei width, GLsizei height, const GLvoid* data,
 		GLenum format,GLenum type);
+	GLuint CreateImage2D(GLsizei width, GLsizei height, const GLvoid* data,
+		GLenum format, GLenum type, GLenum internalFormat);
 	GLuint LoadImage2D(const char* path);
 	bool LoadImage2D(const char* path, ImageData* imageData);
 
@@ -54,6 +56,8 @@ namespace Texture
 		virtual GLint Width() const = 0;
 		virtual GLint Height() const = 0;
 		virtual GLenum Target() const = 0;
+
+		void SetWrapMode(GLenum mode);
 	};
 
 /**
